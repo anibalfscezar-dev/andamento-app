@@ -44,10 +44,18 @@
   </div>
 
   <script>
-    document.getElementById('doLogin').onclick = async ()=>{
-      const { error } = await loginOperator(document.getElementById('email').value, document.getElementById('pass').value);
-      alert(error? 'Falha no login':'Logado!');
-    };
+    document.getElementById('doLogin').onclick = async () => {
+    const { data, error } = await loginOperator(
+      document.getElementById('email').value,
+      document.getElementById('pass').value
+    );
+    if (error) {
+      alert('Falha no login: ' + (error.message || JSON.stringify(error)));
+    } else {
+      alert('Logado!');
+      console.log('Sessão:', data);
+    }
+  };
 
     document.getElementById('create').onclick = async ()=>{
       const token = self.crypto?.randomUUID?.() || String(Date.now());

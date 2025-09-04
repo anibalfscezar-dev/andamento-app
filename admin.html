@@ -1,0 +1,87 @@
+
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="/styles.css"/>
+  <title>Admin</title>
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <div class="card">
+    <h2>Login</h2>
+    <input id="email" placeholder="email"/>
+    <input id="pass" type="password" placeholder="senha"/>
+    <button id="doLogin">Entrar</button>
+  </div>
+
+  <div class="card">
+    <h2>Novo processo</h2>
+    <input id="code" placeholder="código"/>
+    <input id="title" placeholder="título"/>
+    <input id="client_name" placeholder="cliente"/>
+    <input id="client_cpf" placeholder="cpf"/>
+    <button id="create">Criar</button>
+    <div id="link"></div>
+  </div>
+
+  <div class="card">
+    <h2>Adicionar evento</h2>
+    <input id="case_id" placeholder="case_id"/>
+    <select id="status">
+      <option>RECEBIDO</option><option>PROTOCOLO</option><option>AGUARDANDO_ANALISE</option><option>DILIGENCIA</option><option>AUDIENCIA_MARCADA</option><option>SENTENCA</option><option>RECURSO</option><option>TRANSITO_EM_JULGADO</option><option>CUMPRIMENTO_SENTENCA</option><option>ARQUIVADO</option>
+    </select>
+    <input id="desc" placeholder="descrição"/>
+    <button id="addevent">Lançar</button>
+  </div>
+
+  <div class="card">
+    <h2>Anexar arquivo</h2>
+    <input id="case_id_file" placeholder="case_id"/>
+    <input type="file" id="op_file"/>
+    <button id="addfile">Anexar</button>
+  </div>
+
+  <script>
+    document.getElementById('doLogin').onclick = async ()=>{
+      const { error } = await loginOperator(document.getElementById('email').value, document.getElementById('pass').value);
+      alert(error? 'Falha no login':'Logado!');
+    };
+
+    document.getElementById('create').onclick = async ()=>{
+      const token = self.crypto?.randomUUID?.() || String(Date.now());
+      const { data, error } = await operatorCreateCase({
+        code: document.getElementById('code').value,
+        title: document.getElementById('title').value,
+        client_name: document.getElementById('client_name').value,
+        client_cpf: document.getElementById('client_cpf').value.replace(/\D/g,''),
+        token
+      });
+      if(error){ alert('Erro ao criar'); return; }
+      document.getElementById('link').innerHTML = `Link do cliente: <a target="_blank" href="/case.html?token=${encodeURIComponent(token)}">abrir</a>`;
+      alert('Criado! Copie e envie o link ao cliente.');
+    };
+
+    document.getElementById('addevent').onclick = async ()=>{
+      const { error } = await operatorAddEvent(
+        document.getElementById('case_id').value,
+        document.getElementById('status').value,
+        document.getElementById('desc').value
+      );
+      alert(error? 'Erro':'Lançado!');
+    };
+
+    document.getElementById('addfile').onclick = async ()=>{
+      const file = document.getElementById('op_file').files[0];
+      const cid = document.getElementById('case_id_file').value;
+      if(!file || !cid) return alert('Selecione arquivo e case_id');
+      const path = `${cid}/${Date.now()}-${file.name}`;
+      const up = await uploadFile(path, file);
+      if(up.error){ alert('Falha no upload'); return; }
+      const { error } = await operatorAttachFile({ case_id: cid, file_name: file.name, content_type: file.type, size_bytes: file.size, s3_key: up.data.path, uploaded_by: 'OPERATOR' });
+      alert(error? 'Erro':'Anexado!');
+    };
+  </script>
+</body>
+</html>

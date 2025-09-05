@@ -35,25 +35,119 @@
   </div>
 
   <!-- ADICIONAR ANDAMENTO -->
-  <div class="card">
-    <h2>Adicionar andamento</h2>
-    <input id="case_id" placeholder="case_id (UUID do processo)"/>
-    <select id="status">
-      <option>RECEBIDO</option>
-      <option>PROTOCOLO</option>
-      <option>AGUARDANDO_ANALISE</option>
-      <option>DILIGENCIA</option>
-      <option>AUDIENCIA_MARCADA</option>
-      <option>SENTENCA</option>
-      <option>RECURSO</option>
-      <option>TRANSITO_EM_JULGADO</option>
-      <option>CUMPRIMENTO_SENTENCA</option>
-      <option>ARQUIVADO</option>
-    </select>
-    <input id="desc" placeholder="descrição do andamento (curta)"/>
-    <button id="addevent">Lançar andamento</button>
-    <small>Ao lançar, o cliente recebe automaticamente a notificação “Novo andamento publicado.”</small>
-  </div>
+ <!-- ADICIONAR ANDAMENTO (agora com seletor de processos) -->
+<div class="card">
+  <h2>Adicionar andamento</h2>
+
+  <!-- Busca e seleção de processo -->
+  <label for="case_search"><b>Procurar processo</b></label>
+  <input id="case_search" placeholder="Busque por código, título ou cliente (ex.: 23-0001, João, Previdenciária)"/>
+
+  <label for="case_select" style="margin-top:10px"><b>Selecione o processo</b></label>
+  <select id="case_select">
+    <option value="">Carregando...</option>
+  </select>
+
+  <!-- Mantemos um campo escondido com o id, só para conferência -->
+  <input id="case_id" type="hidden"/>
+
+  <label for="status" style="margin-top:10px"><b>Status</b></label>
+  <select id="status">
+    <option>RECEBIDO</option>
+    <option>PROTOCOLO</option>
+    <option>AGUARDANDO_ANALISE</option>
+    <option>DILIGENCIA</option>
+    <option>AUDIENCIA_MARCADA</option>
+    <option>SENTENCA</option>
+    <option>RECURSO</option>
+    <option>TRANSITO_EM_JULGADO</option>
+    <option>CUMPRIMENTO_SENTENCA</option>
+    <option>ARQUIVADO</option>
+  </select>
+
+  <input id="desc" placeholder="descrição do andamento (curta)"/>
+  <button id="addevent">Lançar andamento</button>
+  <small>Ao lançar, o cliente recebe automaticamente a notificação “Novo andamento publicado.”</small>
+</div>
+
+<script>
+  // --- util: debounce para busca ---
+  function debounce(fn, ms = 300) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  // --- renderiza a lista de processos no select ---
+  function renderCases(list) {
+    const sel = document.getElementById('case_select');
+    sel.innerHTML = '';
+    if (!list || !list.length) {
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = 'Nenhum processo encontrado';
+      sel.appendChild(opt);
+      document.getElementById('case_id').value = '';
+      return;
+    }
+    for (const c of list) {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = `${c.code} — ${c.title} (${c.client_name})`;
+      sel.appendChild(opt);
+    }
+    // seleciona o primeiro por padrão
+    document.getElementById('case_id').value = list[0].id;
+  }
+
+  // --- carrega inicial (após login) ---
+  async function loadCasesInitial() {
+    const { data, error } = await operatorListCases(100);
+    if (error) {
+      console.error('Erro ao listar casos:', error);
+      alert('Erro ao carregar processos.');
+      return;
+    }
+    renderCases(data);
+  }
+
+  // altera o case_id ao trocar o select
+  document.getElementById('case_select').addEventListener('change', (e) => {
+    document.getElementById('case_id').value = e.target.value || '';
+  });
+
+  // busca incremental
+  const doSearch = debounce(async () => {
+    const term = document.getElementById('case_search').value;
+    const { data, error } = await operatorSearchCases(term, 50);
+    if (error) {
+      console.error('Erro na busca:', error);
+      return;
+    }
+    renderCases(data);
+  }, 350);
+
+  document.getElementById('case_search').addEventListener('input', doSearch);
+
+  // integra com seu botão de login já existente:
+  // após loginOperatorCPF(...), chame loadCasesInitial()
+  (function patchLoginHook(){
+    const btn = document.getElementById('doLogin');
+    if (!btn) return;
+    const oldHandler = btn.onclick;
+    btn.onclick = async () => {
+      try {
+        // chama seu handler original (faz o login)
+        await oldHandler?.();
+      } catch (e) {
+        // se o original já tratar o alerta, só sai
+        return;
+      }
+      // se logou com sucesso, carrega os processos
+      try { await loadCasesInitial(); } catch(e) { console.error(e); }
+    };
+  })();
+
+  // mantém o handler de lançar andamento como já estava no seu admin.html:
+  // document.getElementById('addevent').onclick = async () => { ... usa document.getElementById('case_id').value ... }
+</script>
 
   <!-- NOTIFICAÇÃO MANUAL -->
   <div class="card">

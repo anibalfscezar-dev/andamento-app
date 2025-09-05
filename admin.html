@@ -1,91 +1,144 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="/styles.css"/><script defer src="/app.js"></script>
-  <title>Admin (CPF + senha)</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Admin — Andamento</title>
+
+  <!-- Opcional: seu styles.css simples -->
+  <link rel="stylesheet" href="/styles.css"/>
+
+  <!-- Carrega nosso app.js (contém as funções e a config Supabase) -->
+  <script defer src="/app.js"></script>
 </head>
 <body>
+  <h1>Admin — Seu Escritório</h1>
+
+  <!-- LOGIN CPF + SENHA -->
   <div class="card">
     <h2>Login (CPF + senha)</h2>
     <input id="cpf" placeholder="CPF (somente números)"/>
     <input id="pass" type="password" placeholder="Senha (padrão: 4 primeiros dígitos do CPF)"/>
     <button id="doLogin">Entrar</button>
-    <small>Dica: senha padrão é os 4 primeiros dígitos do CPF. Altere depois.</small>
+    <small>Dica: crie o operador na tabela <b>operators</b> com <b>cpf</b> e <b>pass_hash</b> (SHA-256 da senha). Padrão sugerido: primeiros 4 dígitos do CPF.</small>
   </div>
 
+  <!-- NOVO PROCESSO -->
   <div class="card">
     <h2>Novo processo</h2>
-    <input id="code" placeholder="código"/>
-    <input id="title" placeholder="título"/>
-    <input id="client_name" placeholder="cliente"/>
-    <input id="client_cpf" placeholder="cpf"/>
+    <input id="code" placeholder="código (ex: 23-0001)"/>
+    <input id="title" placeholder="título (ex: Ação Previdenciária — João Silva)"/>
+    <input id="client_name" placeholder="nome do cliente"/>
+    <input id="client_cpf" placeholder="CPF do cliente (somente números)"/>
     <button id="create">Criar</button>
-    <div id="link"></div>
+    <div id="link" style="margin-top:8px"></div>
   </div>
 
+  <!-- ADICIONAR ANDAMENTO -->
   <div class="card">
-    <h2>Adicionar evento</h2>
-    <input id="case_id" placeholder="case_id"/>
+    <h2>Adicionar andamento</h2>
+    <input id="case_id" placeholder="case_id (UUID do processo)"/>
     <select id="status">
-      <option>RECEBIDO</option><option>PROTOCOLO</option><option>AGUARDANDO_ANALISE</option><option>DILIGENCIA</option><option>AUDIENCIA_MARCADA</option><option>SENTENCA</option><option>RECURSO</option><option>TRANSITO_EM_JULGADO</option><option>CUMPRIMENTO_SENTENCA</option><option>ARQUIVADO</option>
+      <option>RECEBIDO</option>
+      <option>PROTOCOLO</option>
+      <option>AGUARDANDO_ANALISE</option>
+      <option>DILIGENCIA</option>
+      <option>AUDIENCIA_MARCADA</option>
+      <option>SENTENCA</option>
+      <option>RECURSO</option>
+      <option>TRANSITO_EM_JULGADO</option>
+      <option>CUMPRIMENTO_SENTENCA</option>
+      <option>ARQUIVADO</option>
     </select>
-    <input id="desc" placeholder="descrição"/>
-    <button id="addevent">Lançar</button>
+    <input id="desc" placeholder="descrição do andamento (curta)"/>
+    <button id="addevent">Lançar andamento</button>
+    <small>Ao lançar, o cliente recebe automaticamente a notificação “Novo andamento publicado.”</small>
   </div>
 
+  <!-- NOTIFICAÇÃO MANUAL -->
   <div class="card">
     <h2>Enviar notificação ao cliente</h2>
-    <input id="case_id_notify" placeholder="case_id"/>
-    <textarea id="msg" placeholder="Mensagem para o cliente">Por favor, entrar em contato com o escritório.</textarea>
+    <input id="case_id_notify" placeholder="case_id (UUID do processo)"/>
+    <textarea id="msg" rows="3">Por favor, entrar em contato com o escritório.</textarea>
     <button id="send_note">Enviar notificação</button>
   </div>
 
   <script>
-    // Login
+    // ------ LOGIN ------
     document.getElementById('doLogin').onclick = async () => {
-      try{
+      try {
         const cpf = document.getElementById('cpf').value;
         const pass = document.getElementById('pass').value;
-        const res = await loginOperatorCPF(cpf, pass);
+        await loginOperatorCPF(cpf, pass);  // do app.js
         alert('Logado!');
-      }catch(err){
+      } catch (err) {
         alert('Falha no login: ' + (err.message || JSON.stringify(err)));
         console.error(err);
       }
     };
 
-    // Criar caso
-    document.getElementById('create').onclick = async ()=>{
-      const token = self.crypto?.randomUUID?.() || String(Date.now());
-      const { data, error } = await operatorCreateCase({
-        code: document.getElementById('code').value,
-        title: document.getElementById('title').value,
-        client_name: document.getElementById('client_name').value,
-        client_cpf: document.getElementById('client_cpf').value.replace(/\D/g,''),
-        token
-      });
-      if(error){ alert('Erro: '+(error.message||JSON.stringify(error))); return; }
-      document.getElementById('link').innerHTML = `Link do cliente: <a target="_blank" href="/case.html?token=${encodeURIComponent(token)}">abrir</a>`;
-      alert('Criado! Copie e envie o link ao cliente.');
+    // ------ CRIAR CASO ------
+    document.getElementById('create').onclick = async () => {
+      try {
+        const token = self.crypto?.randomUUID?.() || String(Date.now());
+        const payload = {
+          code: document.getElementById('code').value.trim(),
+          title: document.getElementById('title').value.trim(),
+          client_name: document.getElementById('client_name').value.trim(),
+          client_cpf: document.getElementById('client_cpf').value.replace(/\D/g,''),
+          token
+        };
+        if (!payload.code || !payload.title || !payload.client_name || !payload.client_cpf) {
+          alert('Preencha todos os campos do processo.');
+          return;
+        }
+        const { data, error } = await operatorCreateCase(payload); // do app.js
+        if (error) throw error;
+
+        const link = `/case.html?token=${encodeURIComponent(token)}`;
+        document.getElementById('link').innerHTML =
+          `Link do cliente: <a target="_blank" href="${link}">${location.origin}${link}</a>`;
+        alert('Processo criado! Copie e envie o link ao cliente.');
+      } catch (err) {
+        alert('Erro ao criar processo: ' + (err.message || JSON.stringify(err)));
+        console.error(err);
+      }
     };
 
-    // Adicionar evento (gera notificação automática no app.js)
-    document.getElementById('addevent').onclick = async ()=>{
-      const { error } = await operatorAddEvent(
-        document.getElementById('case_id').value,
-        document.getElementById('status').value,
-        document.getElementById('desc').value
-      );
-      alert(error? ('Erro: '+(error.message||JSON.stringify(error))) : 'Lançado! Notificação enviada.');
+    // ------ ADICIONAR ANDAMENTO (gera notificação automática) ------
+    document.getElementById('addevent').onclick = async () => {
+      try {
+        const cid = document.getElementById('case_id').value.trim();
+        const status = document.getElementById('status').value;
+        const desc = document.getElementById('desc').value.trim();
+        if (!cid || !status) { alert('Informe case_id e status.'); return; }
+
+        const { error } = await operatorAddEvent(cid, status, desc); // do app.js
+        if (error) throw error;
+
+        alert('Andamento lançado! Notificação enviada ao cliente.');
+        document.getElementById('desc').value = '';
+      } catch (err) {
+        alert('Erro ao lançar andamento: ' + (err.message || JSON.stringify(err)));
+        console.error(err);
+      }
     };
 
-    // Enviar notificação manual
-    document.getElementById('send_note').onclick = async ()=>{
-      const cid = document.getElementById('case_id_notify').value;
-      const msg = document.getElementById('msg').value;
-      const { error } = await operatorNotify(cid, msg);
-      alert(error? ('Erro: '+(error.message||JSON.stringify(error))) : 'Notificação enviada!');
+    // ------ ENVIAR NOTIFICAÇÃO MANUAL ------
+    document.getElementById('send_note').onclick = async () => {
+      try {
+        const cid = document.getElementById('case_id_notify').value.trim();
+        const msg = document.getElementById('msg').value.trim();
+        if (!cid || !msg) { alert('Informe case_id e a mensagem.'); return; }
+
+        const { error } = await operatorNotify(cid, msg); // do app.js
+        if (error) throw error;
+
+        alert('Notificação enviada!');
+      } catch (err) {
+        alert('Erro ao enviar notificação: ' + (err.message || JSON.stringify(err)));
+        console.error(err);
+      }
     };
   </script>
 </body>

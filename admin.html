@@ -150,12 +150,114 @@
 </script>
 
   <!-- NOTIFICAÇÃO MANUAL -->
-  <div class="card">
-    <h2>Enviar notificação ao cliente</h2>
-    <input id="case_id_notify" placeholder="case_id (UUID do processo)"/>
-    <textarea id="msg" rows="3">Por favor, entrar em contato com o escritório.</textarea>
-    <button id="send_note">Enviar notificação</button>
-  </div>
+  <!-- ENVIAR NOTIFICAÇÃO (com busca e seletor de processo) -->
+<div class="card">
+  <h2>Enviar notificação ao cliente</h2>
+
+  <!-- Busca e seleção de processo -->
+  <label for="case_search_notify"><b>Procurar processo</b></label>
+  <input id="case_search_notify" placeholder="Busque por código, título ou cliente"/>
+
+  <label for="case_select_notify" style="margin-top:10px"><b>Selecione o processo</b></label>
+  <select id="case_select_notify">
+    <option value="">Carregando...</option>
+  </select>
+
+  <!-- Mantemos um campo escondido com o id, para enviar -->
+  <input id="case_id_notify" type="hidden"/>
+
+  <label for="msg" style="margin-top:10px"><b>Mensagem</b></label>
+  <textarea id="msg" rows="3">Por favor, entrar em contato com o escritório.</textarea>
+
+  <button id="send_note">Enviar notificação</button>
+</div>
+
+<script>
+  // --- util: debounce (se já tiver um igual acima, pode remover este) ---
+  function debounceNotify(fn, ms = 300) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+  }
+
+  // --- renderiza a lista no select de notificações ---
+  function renderCasesNotify(list) {
+    const sel = document.getElementById('case_select_notify');
+    sel.innerHTML = '';
+    if (!list || !list.length) {
+      const opt = document.createElement('option');
+      opt.value = ''; opt.textContent = 'Nenhum processo encontrado';
+      sel.appendChild(opt);
+      document.getElementById('case_id_notify').value = '';
+      return;
+    }
+    for (const c of list) {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = `${c.code} — ${c.title} (${c.client_name})`;
+      sel.appendChild(opt);
+    }
+    // seleciona o primeiro por padrão
+    document.getElementById('case_id_notify').value = list[0].id;
+  }
+
+  // --- carga inicial após login ---
+  async function loadCasesInitialNotify() {
+    const { data, error } = await operatorListCases(100); // usa funções do app.js
+    if (error) {
+      console.error('Erro ao listar casos (notify):', error);
+      alert('Erro ao carregar processos para notificação.');
+      return;
+    }
+    renderCasesNotify(data);
+  }
+
+  // altera o case_id quando trocar o select
+  document.getElementById('case_select_notify').addEventListener('change', (e) => {
+    document.getElementById('case_id_notify').value = e.target.value || '';
+  });
+
+  // busca incremental
+  const doSearchNotify = debounceNotify(async () => {
+    const term = document.getElementById('case_search_notify').value;
+    const { data, error } = await operatorSearchCases(term, 50); // usa funções do app.js
+    if (error) {
+      console.error('Erro na busca (notify):', error);
+      return;
+    }
+    renderCasesNotify(data);
+  }, 350);
+
+  document.getElementById('case_search_notify').addEventListener('input', doSearchNotify);
+
+  // integra com o botão de login existente: após login, carrega lista
+  (function hookLoginForNotify(){
+    const btn = document.getElementById('doLogin');
+    if (!btn) return;
+    const old = btn.onclick;
+    btn.onclick = async () => {
+      // chama o handler original (faz login e mostra alert)
+      try { await old?.(); } catch(e) { return; }
+      // se logou, carrega lista de processos para este card
+      try { await loadCasesInitialNotify(); } catch(e) { console.error(e); }
+    };
+  })();
+
+  // envia a notificação usando operatorNotify (do app.js)
+  document.getElementById('send_note').onclick = async () => {
+    try {
+      const cid = document.getElementById('case_id_notify').value;
+      const msg = document.getElementById('msg').value.trim();
+      if (!cid) return alert('Selecione um processo.');
+      if (!msg) return alert('Escreva uma mensagem.');
+
+      const { error } = await operatorNotify(cid, msg);
+      if (error) throw error;
+      alert('Notificação enviada!');
+    } catch (err) {
+      alert('Erro ao enviar notificação: ' + (err.message || JSON.stringify(err)));
+      console.error(err);
+    }
+  };
+</script>
 
   <script>
     // ------ LOGIN ------

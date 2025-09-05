@@ -27,6 +27,21 @@
       const { data: c, error } = await supa.from('cases').select('token, client_cpf').eq('code', code).single();
       if(error || !c){ alert('Não encontrado'); return; }
       if((c.client_cpf||'').replace(/\D/g,'') !== cpf){ alert('Dados não conferem'); return; }
+      <script>
+  document.getElementById('lookup').addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const code = document.getElementById('code').value.trim();
+    const cpf  = document.getElementById('cpf').value.replace(/\D/g,'');
+    const supa = await supaClient();
+    const { data: c, error } = await supa.from('cases').select('token, client_cpf').eq('code', code).single();
+    if(error || !c){ alert('Não encontrado'); return; }
+    if((c.client_cpf||'').replace(/\D/g,'') !== cpf){ alert('Dados não conferem'); return; }
+
+    saveClientCPF(cpf);  // <<< grava o CPF do cliente
+    location.href = `/case.html?token=${encodeURIComponent(c.token)}`;
+  });
+</script>
+
       location.href = `/case.html?token=${encodeURIComponent(c.token)}`;
     });
   </script>

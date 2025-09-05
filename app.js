@@ -87,8 +87,13 @@ async function loginOperatorCPF(cpf, senha) {
 
 // =================== CLIENTE (TOKEN) ===================
 async function setToken(token) {
-  await setGlobalHeaders({ 'x-case-token': token });
+  const cpf = loadClientCPF();                 // CPF salvo do cliente
+  await setGlobalHeaders({
+    'x-case-token': token,
+    'x-client-cpf': cpf || ''                  // sempre mande o CPF junto
+  });
 }
+
 
 // =================== FUNÇÕES DE DADOS ===================
 async function getCaseByToken(token)   { await setToken(token); const s = await getClient(); return await s.from('cases').select('*').single(); }

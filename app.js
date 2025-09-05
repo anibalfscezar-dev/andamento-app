@@ -55,6 +55,15 @@ function loadAdmin() {
     pass: localStorage.getItem('admin_pass') || ''
   };
 }
+// ----- CLIENTE: CPF persistido -----
+function saveClientCPF(cpf) {
+  const only = String(cpf || '').replace(/\D/g,'');
+  localStorage.setItem('client_cpf', only);
+  return only;
+}
+function loadClientCPF() {
+  return (localStorage.getItem('client_cpf') || '').replace(/\D/g,'');
+}
 
 // aplica headers salvos ao carregar
 (async () => {

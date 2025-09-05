@@ -1,8 +1,0 @@
-
-body{font:16px system-ui;background:#f8fafc;color:#0f172a;max-width:720px;margin:0 auto;padding:16px}
-.card{background:#fff;border-radius:16px;box-shadow:0 1px 8px rgba(0,0,0,.06);padding:16px;margin-top:12px}
-button{background:#0f172a;color:#fff;border:0;border-radius:12px;padding:10px 14px;cursor:pointer}
-input,select{padding:10px;border:1px solid #cbd5e1;border-radius:12px;width:100%;margin-top:6px}
-ul{padding-left:18px}
-.dot{width:10px;height:10px;border-radius:9999px;background:#0f172a;display:inline-block;margin-right:8px}
-small{color:#64748b}

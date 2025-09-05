@@ -95,6 +95,28 @@ async function operatorCreateCase(data){ const s = await getClient(); return awa
 async function operatorAddEvent(case_id, status, description){ const s = await getClient(); const res = await s.from('case_events').insert({ case_id, status, description }); if(!res.error){ await operatorNotify(case_id, 'Novo andamento publicado.'); } return res; }
 async function operatorAttachFile(meta){ const s = await getClient(); return await s.from('case_files').insert(meta); }
 async function operatorNotify(case_id, message){ const s = await getClient(); return await s.from('notifications').insert({ case_id, message }); }
+// --- Listar / Buscar processos para o admin ---
+async function operatorListCases(limit = 100) {
+  const s = await getClient();
+  return await s
+    .from('cases')
+    .select('id, code, title, client_name, created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+}
+
+async function operatorSearchCases(q, limit = 50) {
+  const s = await getClient();
+  const term = (q || '').trim();
+  if (!term) return operatorListCases(limit);
+  // busca por código, título ou nome do cliente
+  return await s
+    .from('cases')
+    .select('id, code, title, client_name, created_at')
+    .or(`code.ilike.%${term}%,title.ilike.%${term}%,client_name.ilike.%${term}%`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+}
 
 // =================== PWA ===================
 window._pwa = { deferred: null };

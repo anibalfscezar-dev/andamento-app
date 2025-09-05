@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="/styles.css"/><script defer src="/app.js"></script>
+  <title>Meu Processo</title>
+</head>
+<body>
+  <div id="content" class="card">Carregando...</div>
+  <div class="card">
+    <h3>Avisos do Escritório <span id="badge" class="badge" style="display:none">Novo</span></h3>
+    <ul id="notices"></ul>
+  </div>
+  <div class="card"><h3>Enviar documento</h3><input type="file" id="file"/><button id="send">Enviar</button></div>
+  <script>
+    const params = new URLSearchParams(location.search); const token = params.get('token');
+    if(!token){ document.getElementById('content').innerText='Link inválido'; throw '' }
+    async function load(){
+      const { data: c, error: e1 } = await getCaseByToken(token);
+      if(e1 || !c){ document.getElementById('content').innerText='Não encontrado'; return; }
+      const { data: ev } = await getEventsByToken(token);
+      const { data: files } = await getFilesByToken(token);
+      const { data: notes } = await getNotificationsByToken(token);
+
+      const html = [`<h2>${c.title}</h2>`, `<div><small>Código: ${c.code}</small></div>`, '<h3>Andamento</h3>', '<ul>'];
+      (ev||[]).forEach(x=> html.push(`<li><span class='dot'></span><b>${x.status}</b> — ${x.description||''} <br/><small>${new Date(x.created_at).toLocaleString('pt-BR')}</small></li>`));
+      html.push('</ul>','<h3>Documentos</h3>','<ul>');
+      for(const f of (files||[])){ const { data: signed } = await signStorageUrl(f.s3_key, 60);
+        html.push(`<li><a href='${signed.signedUrl}'>${f.file_name}</a> <small>(${Math.round(f.size_bytes/1024)} KB) • ${f.uploaded_by==='CLIENT'?'Você':'Escritório'}</small></li>`); }
+      html.push('</ul>'); document.getElementById('content').innerHTML = html.join('');
+
+      // Notices
+      const ul = document.getElementById('notices'); ul.innerHTML = '';
+      let unread = 0;
+      (notes||[]).forEach(n=>{
+        const dt = new Date(n.created_at).toLocaleString('pt-BR');
+        const isUnread = !n.read_at;
+        if(isUnread) unread++;
+        const li = document.createElement('li');
+        li.innerHTML = `<b>${n.message}</b> <br/><small>${dt}${isUnread?' • não lido':''}</small>`;
+        li.onclick = async ()=>{ if(isUnread){ await markNotificationRead(n.id); li.querySelector('small').innerHTML = `${dt}`; refreshBadge(); } };
+        ul.appendChild(li);
+      });
+      function refreshBadge(){ document.getElementById('badge').style.display = (unread>0?'inline-block':'none'); }
+      refreshBadge();
+    }
+    document.getElementById('send').onclick = async () => {
+      const file = document.getElementById('file').files[0]; if(!file) return alert('Selecione um arquivo');
+      const { data: c } = await getCaseByToken(token);
+      const path = `${c.id}/${Date.now()}-${file.name}`;
+      const up = await uploadFile(path, file); if(up.error){ alert('Falha no upload'); return; }
+      await operatorAttachFile({ case_id: c.id, file_name: file.name, content_type: file.type, size_bytes: file.size, s3_key: up.data.path, uploaded_by: 'CLIENT' });
+      alert('Enviado!'); location.reload();
+    };
+    load();
+  </script>
+</body>
+</html>

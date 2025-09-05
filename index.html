@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="/styles.css"/><link rel="manifest" href="/manifest.json"/>
+  <script defer src="/app.js"></script><title>Seu Escritório — Andamento</title>
+</head>
+<body>
+  <h1>Seu Escritório — Andamento</h1>
+  <button onclick="promptInstall()">Instalar app</button>
+  <div class="card">
+    <h3>Acessar processo</h3>
+    <p>Digite seu código e CPF (somente números):</p>
+    <form id="lookup">
+      <input id="code" placeholder="ex: 23-0001" required/>
+      <input id="cpf" placeholder="ex: 12345678909" required/>
+      <button>Ver andamento</button>
+    </form>
+    <small>Se você já recebeu um link, basta abrir o link.</small>
+  </div>
+  <script>
+    document.getElementById('lookup').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const code = document.getElementById('code').value.trim();
+      const cpf  = document.getElementById('cpf').value.replace(/\D/g,'');
+      const supa = await supaClient();
+      const { data: c, error } = await supa.from('cases').select('token, client_cpf').eq('code', code).single();
+      if(error || !c){ alert('Não encontrado'); return; }
+      if((c.client_cpf||'').replace(/\D/g,'') !== cpf){ alert('Dados não conferem'); return; }
+      location.href = `/case.html?token=${encodeURIComponent(c.token)}`;
+    });
+  </script>
+</body>
+</html>

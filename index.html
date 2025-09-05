@@ -1,47 +1,64 @@
 <!doctype html>
 <html lang="pt-br">
 <head>
-  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <link rel="stylesheet" href="/styles.css"/><link rel="manifest" href="/manifest.json"/>
-  <script defer src="/app.js"></script><title>Seu Escritório — Andamento</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Seu Escritório — Andamento</title>
+
+  <!-- estilos opcionais -->
+  <link rel="stylesheet" href="/styles.css"/>
+
+  <!-- app.js com as funções Supabase -->
+  <script defer src="/app.js"></script>
 </head>
 <body>
   <h1>Seu Escritório — Andamento</h1>
-  <button onclick="promptInstall()">Instalar app</button>
+
   <div class="card">
     <h3>Acessar processo</h3>
-    <p>Digite seu código e CPF (somente números):</p>
+    <p>Digite seu <b>código</b> e <b>CPF</b> (somente números):</p>
     <form id="lookup">
-      <input id="code" placeholder="ex: 23-0001" required/>
-      <input id="cpf" placeholder="ex: 12345678909" required/>
+      <input id="code" placeholder="ex.: 23-0001" autocomplete="off" required/>
+      <input id="cpf"  placeholder="ex.: 12345678909" inputmode="numeric" autocomplete="off" required/>
       <button>Ver andamento</button>
     </form>
-    <small>Se você já recebeu um link, basta abrir o link.</small>
+    <small>Se você já recebeu um link direto, basta abrir o link.</small>
   </div>
+
   <script>
-    document.getElementById('lookup').addEventListener('submit', async (e)=>{
+    // Se já existe CPF salvo, pré-preenche o campo
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const saved = (loadClientCPF?.() || '');
+        if (saved) document.getElementById('cpf').value = saved;
+      } catch (e) {}
+    });
+
+    document.getElementById('lookup').addEventListener('submit', async (e) => {
       e.preventDefault();
       const code = document.getElementById('code').value.trim();
-      const cpf  = document.getElementById('cpf').value.replace(/\D/g,'');
-      const supa = await supaClient();
-      const { data: c, error } = await supa.from('cases').select('token, client_cpf').eq('code', code).single();
-      if(error || !c){ alert('Não encontrado'); return; }
-      if((c.client_cpf||'').replace(/\D/g,'') !== cpf){ alert('Dados não conferem'); return; }
-      <script>
-  document.getElementById('lookup').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const code = document.getElementById('code').value.trim();
-    const cpf  = document.getElementById('cpf').value.replace(/\D/g,'');
-    const supa = await supaClient();
-    const { data: c, error } = await supa.from('cases').select('token, client_cpf').eq('code', code).single();
-    if(error || !c){ alert('Não encontrado'); return; }
-    if((c.client_cpf||'').replace(/\D/g,'') !== cpf){ alert('Dados não conferem'); return; }
+      const cpf  = (document.getElementById('cpf').value || '').replace(/\D/g, '');
+      if (!code || !cpf) return alert('Informe código e CPF.');
 
-    saveClientCPF(cpf);  // <<< grava o CPF do cliente
-    location.href = `/case.html?token=${encodeURIComponent(c.token)}`;
-  });
-</script>
+      // Busca o token do processo por código
+      const s = await supaClient?.();
+      const { data: c, error } = await s
+        .from('cases')
+        .select('token, client_cpf')
+        .eq('code', code)
+        .single();
 
+      if (error || !c) {
+        alert('Processo não encontrado.');
+        return;
+      }
+      if ((c.client_cpf || '').replace(/\D/g, '') !== cpf) {
+        alert('CPF não confere para este código.');
+        return;
+      }
+
+      // Salva o CPF (permanece logado) e redireciona
+      saveClientCPF?.(cpf);
       location.href = `/case.html?token=${encodeURIComponent(c.token)}`;
     });
   </script>
